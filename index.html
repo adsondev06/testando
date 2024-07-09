@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro e Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            margin: 0;
+        }
+        .container {
+            background-color: #fff;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 5px;
+            width: 300px;
+            display: none; /* Default to hidden */
+        }
+        .container input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .container button {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: #fff;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .container button:hover {
+            background-color: #218838;
+        }
+        .container a {
+            display: block;
+            text-align: center;
+            margin-top: 10px;
+            color: #007bff;
+            text-decoration: none;
+        }
+        .container a:hover {
+            text-decoration: underline;
+        }
+        .phone-input {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container" id="login-container">
+        <h2>Login</h2>
+        <input type="tel" id="telefone_login" placeholder="Telefone" required>
+        <button onclick="sendVerificationCode()">Enviar Código</button>
+        <div id="verification-container" class="phone-input">
+            <input type="text" id="verification_code" placeholder="Código de Verificação" required>
+            <button onclick="verifyCode()">Verificar Código</button>
+        </div>
+        <button onclick="loginWithGoogle()">Entrar com Google</button>
+        <a href="#" onclick="showRegister()">Não tem uma conta? Cadastre-se</a>
+    </div>
+
+    <div class="container" id="register-container">
+        <h2>Cadastro</h2>
+        <input type="tel" id="telefone_register" placeholder="Telefone" required>
+        <input type="text" id="nome_sobrenome" placeholder="Nome e Sobrenome" required>
+        <input type="password" id="senha" placeholder="Senha" required>
+        <input type="password" id="confirme_senha" placeholder="Confirme sua senha" required>
+        <button onclick="register()">Cadastrar</button>
+        <button onclick="registerWithGoogle()">Cadastrar com Google</button>
+        <a href="#" onclick="showLogin()">Já tem uma conta? Login</a>
+    </div>
+
+    <!-- Firebase SDK versão 8.x -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+
+    <script>
+        // Aguarda o carregamento da página para inicializar o Firebase
+        window.onload = function() {
+            console.log('Window loaded');
+            
+            // Configurações do Firebase
+            const firebaseConfig = {
+                apiKey: "AIzaSyB54X4LWYUv0z0TkQDBh9yrjw8wHypoxYM",
+                authDomain: "teste10-c8ac9.firebaseapp.com",
+                projectId: "teste10-c8ac9",
+                storageBucket: "teste10-c8ac9.appspot.com",
+                messagingSenderId: "745084049281",
+                appId: "1:745084049281:web:14728b6a4237155ac5ba80"
+            };
+
+            // Inicializa o Firebase
+            firebase.initializeApp(firebaseConfig);
+            const auth = firebase.auth();
+            const db = firebase.firestore();
+
+            // Mostrar tela de login inicialmente
+            document.getElementById('login-container').style.display = 'block';
+
+            // Alternar entre telas
+            window.showLogin = function() {
+                console.log('Showing login');
+                document.getElementById('login-container').style.display = 'block';
+                document.getElementById('register-container').style.display = 'none';
+            }
+
+            window.showRegister = function() {
+                console.log('Showing register');
+                document.getElementById('login-container').style.display = 'none';
+                document.getElementById('register-container').style.display = 'block';
+            }
+
+            // Função de login com telefone
+            window.sendVerificationCode = function() {
+                const telefone = document.getElementById('telefone_login').value;
+                const appVerifier = window.recaptchaVerifier;
+
+                firebase.auth().signInWithPhoneNumber(telefone, appVerifier)
+                    .then((confirmationResult) => {
+                        window.confirmationResult = confirmationResult;
+                        document.getElementById('verification-container').style.display = 'block';
+                        alert('Código enviado para ' + telefone);
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            }
+
+            // Função para verificar o código
+            window.verifyCode = function() {
+                const code = document.getElementById('verification_code').value;
+                window.confirmationResult.confirm(code)
+                    .then((result) => {
+                        const user = result.user;
+                        alert('Login realizado com sucesso!');
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            }
+
+            // Função de cadastro com telefone
+            window.register = function() {
+                const telefone = document.getElementById('telefone_register').value;
+                const nomeSobrenome = document.getElementById('nome_sobrenome').value;
+                const password = document.getElementById('senha').value;
+                const confirmPassword = document.getElementById('confirme_senha').value;
+
+                if (password !== confirmPassword) {
+                    alert('As senhas não coincidem!');
+                    return;
+                }
+
+                auth.createUserWithEmailAndPassword(telefone + "@example.com", password)
+                    .then((userCredential) => {
+                        // Salvar dados adicionais no Firestore
+                        const user = userCredential.user;
+                        db.collection('users').doc(user.uid).set({
+                            nome_sobrenome: nomeSobrenome,
+                            telefone: telefone
+                        });
+                        alert('Usuário cadastrado com sucesso!');
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            }
+
+            // Configurar reCAPTCHA
+            window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+                size: 'invisible',
+                callback: function(response) {
+                    console.log('Recaptcha verified');
+                }
+            });
+
+            // Função para fazer login com Google
+            window.loginWithGoogle = function() {
+                var provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider)
+                    .then((result) => {
+                        var user = result.user;
+                        alert('Login realizado com sucesso!');
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            }
+
+            // Função para registrar com Google
+            window.registerWithGoogle = function() {
+                var provider = new firebase.auth.GoogleAuthProvider();
+                auth.signInWithPopup(provider)
+                    .then((result) => {
+                        var user = result.user;
+                        alert('Cadastro realizado com sucesso!');
+                    })
+                    .catch((error) => {
+                        alert(error.message);
+                    });
+            }
+        };
+    </script>
+    <div id="recaptcha-container"></div>
+</body>
+</html>
